@@ -22,6 +22,16 @@ function cityLabel(city: City): string {
     .join(", ");
 }
 
+function populationHint(city: City): string | undefined {
+  if (city.population === undefined || city.population <= 0) {
+    return undefined;
+  }
+  const formatted = new Intl.NumberFormat("es", { notation: "compact" }).format(
+    city.population,
+  );
+  return `≈ ${formatted} habitantes`;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -126,7 +136,11 @@ async function handleSearchAdd(state: AppState): Promise<void> {
   }
   const picked = await p.select({
     message: "Ciudad a agregar:",
-    options: pending.map((city) => ({ value: city, label: cityLabel(city) })),
+    options: pending.map((city) => ({
+      value: city,
+      label: cityLabel(city),
+      hint: populationHint(city),
+    })),
   });
   if (p.isCancel(picked)) {
     p.log.warn("Agregar ciudad cancelado");

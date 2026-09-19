@@ -5,6 +5,7 @@ export interface City {
   admin1?: string;
   latitude: number;
   longitude: number;
+  population?: number;
 }
 
 export type TemperatureUnit = "celsius" | "fahrenheit";
