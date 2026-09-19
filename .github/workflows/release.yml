@@ -1,0 +1,138 @@
+# Release: compila el binario con `bun run build` en Linux, macOS
+# (ARM64 e Intel) y Windows, y lo publica en un GitHub Release con el tag
+# v{version} leído de package.json.
+#
+# Se dispara con cada push a main que toque package.json (p. ej. un bump
+# de versión). Si el tag ya existe, el release se omite (idempotente).
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.asset }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            asset: weather-linux-x64
+          - runner: macos-latest
+            asset: weather-macos-arm64
+          - runner: macos-15-intel
+            asset: weather-macos-x64
+          - runner: windows-latest
+            asset: weather-windows-x64.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Instalar dependencias
+        run: bun install
+
+      - name: Tests + compilar binario
+        run: bun run build
+
+      - name: Renombrar binario por plataforma
+        shell: bash
+        run: |
+          if [ -f "out/weather.exe" ]; then
+            mv "out/weather.exe" "out/${{ matrix.asset }}"
+          else
+            mv "out/weather" "out/${{ matrix.asset }}"
+          fi
+          ls -la out/
+
+      - name: Subir binario como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: out/${{ matrix.asset }}
+          if-no-files-found: error
+
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Leer versión y comprobar si el tag existe
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(jq -r '.version' package.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git ls-remote --tags --exit-code origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Descargar binarios
+        if: steps.version.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generar notas del release (es)
+        if: steps.version.outputs.exists == 'false'
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat > release-notes.md <<EOF
+          ## Weather CLI v$VERSION
+
+          CLI interactiva del tiempo (Bun + TypeScript): ciudad por defecto,
+          clima actual de todas las ciudades, gestión de ciudades, pronóstico
+          a 7 días y ajustes °C/°F. Sin API key (OpenMeteo).
+
+          ### Binarios
+
+          | Plataforma | Archivo |
+          | --- | --- |
+          | Linux x64 | weather-linux-x64 |
+          | macOS Apple Silicon (ARM64) | weather-macos-arm64 |
+          | macOS Intel (x64) | weather-macos-x64 |
+          | Windows x64 | weather-windows-x64.exe |
+
+          ### Uso
+
+          Linux y macOS:
+
+              chmod +x weather-*
+              ./weather-linux-x64
+
+          (usa ./weather-macos-arm64 o ./weather-macos-x64 según tu Mac).
+
+          Windows: ejecuta weather-windows-x64.exe.
+          EOF
+
+      - name: Crear tag y publicar release
+        if: steps.version.outputs.exists == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes-file release-notes.md \
+            dist/weather-linux-x64 \
+            dist/weather-macos-arm64 \
+            dist/weather-macos-x64 \
+            dist/weather-windows-x64.exe
