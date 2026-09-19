@@ -8,9 +8,10 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - package.json
+  workflow_dispatch:
 
 permissions:
   contents: write
