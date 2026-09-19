@@ -1,41 +1,16 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { useIsolatedTestEnv } from "../helpers.ts";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
   configDir,
   legacyStoragePath,
   loadState,
   saveState,
   storagePath,
-} from "../src/storage/state.ts";
-import type { AppState } from "../src/types/AppState.ts";
+} from "../../src/storage/state.ts";
+import type { AppState } from "../../src/types/AppState.ts";
 
-let sandbox = "";
-let originalHome: string | undefined;
-let originalXdg: string | undefined;
-
-beforeEach(async () => {
-  sandbox = await mkdtemp(join(tmpdir(), "weather-cli-test-"));
-  originalHome = process.env.HOME;
-  originalXdg = process.env.XDG_CONFIG_HOME;
-  process.env.HOME = join(sandbox, "home");
-  process.env.XDG_CONFIG_HOME = join(sandbox, "config");
-});
-
-afterEach(async () => {
-  if (originalHome === undefined) {
-    delete process.env.HOME;
-  } else {
-    process.env.HOME = originalHome;
-  }
-  if (originalXdg === undefined) {
-    delete process.env.XDG_CONFIG_HOME;
-  } else {
-    process.env.XDG_CONFIG_HOME = originalXdg;
-  }
-  await rm(sandbox, { recursive: true, force: true });
-});
+useIsolatedTestEnv();
 
 const sampleState: AppState = {
   cities: [

@@ -1,27 +1,12 @@
-import { afterEach, describe, expect, test, mock } from "bun:test";
-import { searchCities } from "../src/api/geocoding.ts";
+import { mockFetchError, mockFetchJson, useIsolatedTestEnv } from "../helpers.ts";
+import { describe, expect, test } from "bun:test";
+import { searchCities } from "../../src/api/geocoding.ts";
 
-const realFetch = globalThis.fetch;
-let lastUrl = "";
-
-afterEach(() => {
-  globalThis.fetch = realFetch;
-  lastUrl = "";
-});
-
-function mockFetch(body: unknown, status = 200): void {
-  globalThis.fetch = mock(async (input: string | URL | Request) => {
-    lastUrl = String(input instanceof Request ? input.url : input);
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { "content-type": "application/json" },
-    });
-  }) as unknown as typeof fetch;
-}
+useIsolatedTestEnv();
 
 describe("searchCities", () => {
   test("mapea los resultados de la API", async () => {
-    mockFetch({
+    mockFetchJson({
       results: [
         {
           id: 3688689,
@@ -48,9 +33,9 @@ describe("searchCities", () => {
   });
 
   test("envía count, language y el nombre buscado", async () => {
-    mockFetch({ results: [] });
+    const { urls } = mockFetchJson({ results: [] });
     await searchCities("Madrid");
-    const url = new URL(lastUrl);
+    const url = new URL(urls[0] as string);
     expect(url.searchParams.get("name")).toBe("Madrid");
     expect(url.searchParams.get("count")).toBe("10");
     expect(url.searchParams.get("language")).toBe("es");
@@ -65,17 +50,17 @@ describe("searchCities", () => {
       latitude: -12.04,
       longitude: -77.03,
     };
-    mockFetch({ results: [entry, { ...entry }] });
+    mockFetchJson({ results: [entry, { ...entry }] });
     expect(await searchCities("lima")).toHaveLength(1);
   });
 
   test("devuelve arreglo vacío cuando no hay resultados", async () => {
-    mockFetch({});
+    mockFetchJson({});
     expect(await searchCities("xyzzy")).toEqual([]);
   });
 
   test("lanza error con el código HTTP", async () => {
-    mockFetch({}, 500);
+    mockFetchError(500);
     await expect(searchCities("bogota")).rejects.toThrow("500");
   });
 });

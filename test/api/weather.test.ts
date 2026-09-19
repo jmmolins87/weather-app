@@ -1,27 +1,12 @@
-import { afterEach, describe, expect, test, mock } from "bun:test";
-import { getDailyForecast, getForecast } from "../src/api/weather.ts";
+import { mockFetchError, mockFetchJson, useIsolatedTestEnv } from "../helpers.ts";
+import { describe, expect, test } from "bun:test";
+import { getDailyForecast, getForecast } from "../../src/api/weather.ts";
 
-const realFetch = globalThis.fetch;
-let lastUrl = "";
-
-afterEach(() => {
-  globalThis.fetch = realFetch;
-  lastUrl = "";
-});
-
-function mockFetch(body: unknown, status = 200): void {
-  globalThis.fetch = mock(async (input: string | URL | Request) => {
-    lastUrl = String(input instanceof Request ? input.url : input);
-    return new Response(JSON.stringify(body), {
-      status,
-      headers: { "content-type": "application/json" },
-    });
-  }) as unknown as typeof fetch;
-}
+useIsolatedTestEnv();
 
 describe("getForecast", () => {
   test("devuelve la temperatura actual con su unidad", async () => {
-    mockFetch({
+    mockFetchJson({
       current: { temperature_2m: 21.5 },
       current_units: { temperature_2m: "°C" },
     });
@@ -30,9 +15,12 @@ describe("getForecast", () => {
   });
 
   test("envía coordenadas y unidad en la URL", async () => {
-    mockFetch({ current: { temperature_2m: 70 }, current_units: { temperature_2m: "°F" } });
+    const { urls } = mockFetchJson({
+      current: { temperature_2m: 70 },
+      current_units: { temperature_2m: "°F" },
+    });
     await getForecast(40.41, -3.7, "fahrenheit");
-    const url = new URL(lastUrl);
+    const url = new URL(urls[0] as string);
     expect(url.searchParams.get("latitude")).toBe("40.41");
     expect(url.searchParams.get("longitude")).toBe("-3.7");
     expect(url.searchParams.get("current")).toBe("temperature_2m");
@@ -40,18 +28,18 @@ describe("getForecast", () => {
   });
 
   test("usa la unidad pedida cuando la respuesta no trae unidades", async () => {
-    mockFetch({ current: { temperature_2m: 20 } });
+    mockFetchJson({ current: { temperature_2m: 20 } });
     const weather = await getForecast(4.61, -74.08, "celsius");
     expect(weather.unit).toBe("°C");
   });
 
   test("lanza error cuando falta la temperatura", async () => {
-    mockFetch({ current: {} });
+    mockFetchJson({ current: {} });
     await expect(getForecast(4.61, -74.08, "celsius")).rejects.toThrow("temperatura");
   });
 
   test("lanza error con el código HTTP", async () => {
-    mockFetch({}, 503);
+    mockFetchError(503);
     await expect(getForecast(4.61, -74.08, "celsius")).rejects.toThrow("503");
   });
 });
@@ -67,7 +55,7 @@ describe("getDailyForecast", () => {
   };
 
   test("devuelve el pronóstico diario", async () => {
-    mockFetch(dailyBody);
+    mockFetchJson(dailyBody);
     const days = await getDailyForecast(4.61, -74.08, "celsius");
     expect(days).toEqual([
       { date: "2026-01-01", max: 25, min: 15, unit: "°C" },
@@ -76,15 +64,15 @@ describe("getDailyForecast", () => {
   });
 
   test("pide 7 días con timezone auto", async () => {
-    mockFetch(dailyBody);
+    const { urls } = mockFetchJson(dailyBody);
     await getDailyForecast(4.61, -74.08, "celsius");
-    const url = new URL(lastUrl);
+    const url = new URL(urls[0] as string);
     expect(url.searchParams.get("forecast_days")).toBe("7");
     expect(url.searchParams.get("timezone")).toBe("auto");
   });
 
   test("omite días con valores incompletos", async () => {
-    mockFetch({
+    mockFetchJson({
       daily: {
         time: ["2026-01-01", "2026-01-02"],
         temperature_2m_max: [25],
@@ -98,14 +86,14 @@ describe("getDailyForecast", () => {
   });
 
   test("lanza error cuando no hay datos diarios", async () => {
-    mockFetch({ daily: {} });
+    mockFetchJson({ daily: {} });
     await expect(getDailyForecast(4.61, -74.08, "celsius")).rejects.toThrow(
       "pronóstico",
     );
   });
 
   test("lanza error con el código HTTP", async () => {
-    mockFetch({}, 500);
+    mockFetchError(500);
     await expect(getDailyForecast(4.61, -74.08, "celsius")).rejects.toThrow("500");
   });
 });
