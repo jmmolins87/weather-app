@@ -1,7 +1,7 @@
 import { mkdir, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
-import type { AppState } from "./types.ts";
+import type { AppState } from "../types/AppState.ts";
 
 const CONFIG_DIR_NAME = "weather-cli";
 const STATE_FILE_NAME = "state.json";

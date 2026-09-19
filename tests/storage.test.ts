@@ -8,8 +8,8 @@ import {
   loadState,
   saveState,
   storagePath,
-} from "../src/storage.ts";
-import type { AppState } from "../src/types.ts";
+} from "../src/storage/state.ts";
+import type { AppState } from "../src/types/AppState.ts";
 
 let sandbox = "";
 let originalHome: string | undefined;

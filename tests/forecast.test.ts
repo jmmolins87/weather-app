@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, mock } from "bun:test";
-import { getDailyForecast, getForecast } from "../src/forecast.ts";
+import { getDailyForecast, getForecast } from "../src/api/weather.ts";
 
 const realFetch = globalThis.fetch;
 let lastUrl = "";

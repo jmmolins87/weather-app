@@ -38,10 +38,11 @@ Esta es la apariencia que deseamos crear
 ════════════════════════════════════════
   1. Clima de ciudad default
   2. Clima de todas las ciudades (1)
-  3. Buscar y agregar ciudad
-  4. Eliminar ciudad
-  5. Establecer ciudad default
-  6. Pronóstico 7 días
+  3. Listar ciudades guardadas
+  4. Buscar y agregar ciudad
+  5. Eliminar ciudad
+  6. Establecer ciudad default
+  7. Pronóstico 7 días
   8. Ajustes (°C)
   9. Salir
 ════════════════════════════════════════

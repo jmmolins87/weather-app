@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, mock } from "bun:test";
-import { searchCities } from "../src/geocoding.ts";
+import { searchCities } from "../src/api/geocoding.ts";
 
 const realFetch = globalThis.fetch;
 let lastUrl = "";

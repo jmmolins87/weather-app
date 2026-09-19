@@ -1,4 +1,5 @@
-import type { City } from "./types.ts";
+import { GEOCODING_API_URL } from "../utils/constants.ts";
+import type { City } from "../types/City.ts";
 
 interface GeocodingResult {
   id: number;
@@ -15,7 +16,7 @@ interface GeocodingResponse {
 }
 
 export async function searchCities(query: string): Promise<City[]> {
-  const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+  const url = new URL(GEOCODING_API_URL);
   url.searchParams.set("name", query);
   url.searchParams.set("count", "10");
   url.searchParams.set("language", "es");

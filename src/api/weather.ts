@@ -1,16 +1,9 @@
-import type { TemperatureUnit } from "./types.ts";
-
-export interface CurrentWeather {
-  temperature: number;
-  unit: string;
-}
-
-export interface DailyForecast {
-  date: string;
-  max: number;
-  min: number;
-  unit: string;
-}
+import { FORECAST_API_URL } from "../utils/constants.ts";
+import type {
+  CurrentWeather,
+  DailyForecast,
+  TemperatureUnit,
+} from "../types/Weather.ts";
 
 interface ForecastResponse {
   current?: { temperature_2m?: number };
@@ -28,7 +21,7 @@ export async function getForecast(
   longitude: number,
   unit: TemperatureUnit,
 ): Promise<CurrentWeather> {
-  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  const url = new URL(FORECAST_API_URL);
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("current", "temperature_2m");
@@ -53,7 +46,7 @@ export async function getDailyForecast(
   longitude: number,
   unit: TemperatureUnit,
 ): Promise<DailyForecast[]> {
-  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  const url = new URL(FORECAST_API_URL);
   url.searchParams.set("latitude", String(latitude));
   url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min");
