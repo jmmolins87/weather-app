@@ -36,23 +36,19 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+interface MenuCommand {
+  value: string;
+  label: (state: AppState) => string;
+  hint?: (state: AppState) => string | undefined;
+  run?: (state: AppState) => Promise<void>;
+}
+
 function menuOptions(state: AppState) {
-  const defaultCity = state.cities.find((city) => city.id === state.defaultCityId);
-  const unitSymbol = state.settings.unit === "celsius" ? "°C" : "°F";
-  return [
-    {
-      value: "default",
-      label: "1. Clima de ciudad default",
-      hint: defaultCity === undefined ? "sin establecer" : cityLabel(defaultCity),
-    },
-    { value: "all", label: `2. Clima de todas las ciudades (${state.cities.length})` },
-    { value: "search", label: "3. Buscar y agregar ciudad" },
-    { value: "delete", label: "4. Eliminar ciudad" },
-    { value: "set-default", label: "5. Establecer ciudad default" },
-    { value: "week", label: "6. Pronóstico 7 días" },
-    { value: "settings", label: `8. Ajustes (${unitSymbol})` },
-    { value: "exit", label: "9. Salir" },
-  ];
+  return COMMANDS.map((command, index) => ({
+    value: command.value,
+    label: `${index + 1}. ${command.label(state)}`,
+    hint: command.hint?.(state),
+  }));
 }
 
 async function showWeather(city: City, unit: TemperatureUnit): Promise<void> {
@@ -264,6 +260,40 @@ async function handleSettings(state: AppState): Promise<void> {
   p.log.success(pc.green(`Unidad guardada: ${picked === "celsius" ? "°C" : "°F"}`));
 }
 
+// Para agregar una funcionalidad nueva basta con añadir una entrada aquí:
+// la numeración del menú se genera sola y el bucle de main() la ejecuta.
+const COMMANDS: MenuCommand[] = [
+  {
+    value: "default",
+    label: () => "Clima de ciudad default",
+    hint: (state) => {
+      const city = state.cities.find((c) => c.id === state.defaultCityId);
+      return city === undefined ? "sin establecer" : cityLabel(city);
+    },
+    run: handleDefaultWeather,
+  },
+  {
+    value: "all",
+    label: (state) => `Clima de todas las ciudades (${state.cities.length})`,
+    run: handleAllCities,
+  },
+  { value: "search", label: () => "Buscar y agregar ciudad", run: handleSearchAdd },
+  { value: "delete", label: () => "Eliminar ciudad", run: handleDelete },
+  {
+    value: "set-default",
+    label: () => "Establecer ciudad default",
+    run: handleSetDefault,
+  },
+  { value: "week", label: () => "Pronóstico 7 días", run: handleWeekForecast },
+  {
+    value: "settings",
+    label: (state) =>
+      `Ajustes (${state.settings.unit === "celsius" ? "°C" : "°F"})`,
+    run: handleSettings,
+  },
+  { value: "exit", label: () => "Salir" },
+];
+
 export async function main(): Promise<void> {
   const state = await loadState();
   banner();
@@ -272,32 +302,14 @@ export async function main(): Promise<void> {
       message: "Selecciona una opción",
       options: menuOptions(state),
     });
-    if (p.isCancel(choice) || choice === "exit") {
+    if (p.isCancel(choice)) {
       break;
     }
-    switch (choice) {
-      case "default":
-        await handleDefaultWeather(state);
-        break;
-      case "all":
-        await handleAllCities(state);
-        break;
-      case "search":
-        await handleSearchAdd(state);
-        break;
-      case "delete":
-        await handleDelete(state);
-        break;
-      case "set-default":
-        await handleSetDefault(state);
-        break;
-      case "week":
-        await handleWeekForecast(state);
-        break;
-      case "settings":
-        await handleSettings(state);
-        break;
+    const command = COMMANDS.find((c) => c.value === choice);
+    if (command === undefined || command.run === undefined) {
+      break;
     }
+    await command.run(state);
   }
   p.outro("¡Hasta luego!");
 }
