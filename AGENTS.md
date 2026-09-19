@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Bun + TypeScript weather CLI (course project). Entry point is `index.ts` (repo root); the app is split into modules under `src/`: `types.ts` (shared types), `geocoding.ts` (OpenMeteo geocoding), `forecast.ts` (OpenMeteo forecast), `storage.ts` (persistent state in `~/.weather-cli.json`), `menu.ts` (interactive menu loop, `@clack/prompts`).
+Bun + TypeScript weather CLI (course project). Entry point is `index.ts` (repo root), which just calls `main()` from `src/menu.ts`; the app is fully functional. Modules under `src/`: `types.ts` (shared types), `geocoding.ts` (OpenMeteo geocoding), `forecast.ts` (OpenMeteo current weather + 7-day forecast), `storage.ts` (persistent state in `~/.weather-cli.json`), `menu.ts` (interactive menu loop, `@clack/prompts`, colors via `picocolors`).
 
 ## Commands
 
@@ -19,7 +19,7 @@ Bun + TypeScript weather CLI (course project). Entry point is `index.ts` (repo r
 
 ## Project spec
 
-- `README.md` (Spanish) is the spec: numbered menu (default city, saved cities, search/add, delete, set default, settings °C).
+- `README.md` (Spanish) is the spec: numbered menu (default city, saved cities, search/add, delete, set default, 7-day forecast, settings °C/°F).
 - Data flow is two-step OpenMeteo: geocoding API to resolve city → forecast API for weather. No API key required.
 - Final deliverable is a compiled executable: `bun run build` (i.e. `bun build --compile index.ts --outfile out/weather`); `out/`, `dist/` are gitignored.
 - User-facing strings and menu labels are in Spanish.

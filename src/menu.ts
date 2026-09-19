@@ -1,5 +1,6 @@
 import * as p from "@clack/prompts";
-import { getForecast } from "./forecast.ts";
+import pc from "picocolors";
+import { getDailyForecast, getForecast } from "./forecast.ts";
 import { searchCities } from "./geocoding.ts";
 import { loadState, saveState } from "./storage.ts";
 import type { AppState, City, TemperatureUnit } from "./types.ts";
@@ -12,7 +13,7 @@ function banner(): void {
   const centered = title
     .padStart(Math.floor((BANNER_WIDTH + title.length) / 2))
     .padEnd(BANNER_WIDTH);
-  console.log(`${border}\n${centered}\n${border}`);
+  console.log(pc.cyan(`${border}\n${pc.bold(centered)}\n${border}`));
 }
 
 function cityLabel(city: City): string {
@@ -38,6 +39,7 @@ function menuOptions(state: AppState) {
     { value: "search", label: "3. Buscar y agregar ciudad" },
     { value: "delete", label: "4. Eliminar ciudad" },
     { value: "set-default", label: "5. Establecer ciudad default" },
+    { value: "week", label: "6. Pronóstico 7 días" },
     { value: "settings", label: `8. Ajustes (${unitSymbol})` },
     { value: "exit", label: "9. Salir" },
   ];
@@ -48,10 +50,10 @@ async function showWeather(city: City, unit: TemperatureUnit): Promise<void> {
   spinner.start(`Consultando el clima de ${city.name}...`);
   try {
     const weather = await getForecast(city.latitude, city.longitude, unit);
-    spinner.stop(`${cityLabel(city)} → ${weather.temperature} ${weather.unit}`);
+    spinner.stop(`${cityLabel(city)} → ${pc.yellow(`${weather.temperature} ${weather.unit}`)}`);
   } catch (error) {
     spinner.stop();
-    p.log.error(errorMessage(error));
+    p.log.error(pc.red(errorMessage(error)));
   }
 }
 
@@ -81,9 +83,9 @@ async function handleAllCities(state: AppState): Promise<void> {
       continue;
     }
     if (result.status === "fulfilled") {
-      p.log.info(`${cityLabel(city)} → ${result.value.temperature} ${result.value.unit}`);
+      p.log.info(`${cityLabel(city)} → ${pc.yellow(`${result.value.temperature} ${result.value.unit}`)}`);
     } else {
-      p.log.error(`${cityLabel(city)} → ${errorMessage(result.reason)}`);
+      p.log.error(`${cityLabel(city)} → ${pc.red(errorMessage(result.reason))}`);
     }
   }
 }
@@ -109,7 +111,7 @@ async function handleSearchAdd(state: AppState): Promise<void> {
     results = await searchCities(query.trim());
   } catch (error) {
     spinner.stop();
-    p.log.error(errorMessage(error));
+    p.log.error(pc.red(errorMessage(error)));
     return;
   }
   spinner.stop(results.length > 0 ? `Encontradas ${results.length} coincidencias` : undefined);
@@ -132,7 +134,7 @@ async function handleSearchAdd(state: AppState): Promise<void> {
   }
   state.cities.push(picked);
   await saveState(state);
-  p.log.success(`Ciudad agregada: ${cityLabel(picked)}`);
+  p.log.success(pc.green(`Ciudad agregada: ${cityLabel(picked)}`));
 }
 
 async function handleDelete(state: AppState): Promise<void> {
@@ -154,7 +156,7 @@ async function handleDelete(state: AppState): Promise<void> {
     state.defaultCityId = undefined;
   }
   await saveState(state);
-  p.log.success(`Ciudad eliminada: ${city === undefined ? "" : cityLabel(city)}`);
+  p.log.success(pc.green(`Ciudad eliminada: ${city === undefined ? "" : cityLabel(city)}`));
 }
 
 async function handleSetDefault(state: AppState): Promise<void> {
@@ -177,7 +179,50 @@ async function handleSetDefault(state: AppState): Promise<void> {
   state.defaultCityId = picked;
   await saveState(state);
   const city = state.cities.find((c) => c.id === picked);
-  p.log.success(`Ciudad default: ${city === undefined ? "" : cityLabel(city)}`);
+  p.log.success(pc.green(`Ciudad default: ${city === undefined ? "" : cityLabel(city)}`));
+}
+
+const dayFormatter = new Intl.DateTimeFormat("es", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+function formatDay(date: string): string {
+  const parsed = new Date(`${date}T12:00:00`);
+  return dayFormatter.format(parsed);
+}
+
+async function handleWeekForecast(state: AppState): Promise<void> {
+  if (state.cities.length === 0) {
+    p.log.warn("No hay ciudades guardadas. Agrega una con la opción 3.");
+    return;
+  }
+  let city = state.cities.find((c) => c.id === state.defaultCityId);
+  if (city === undefined) {
+    const picked = await p.select({
+      message: "Ciudad para el pronóstico:",
+      options: state.cities.map((c) => ({ value: c, label: cityLabel(c) })),
+    });
+    if (p.isCancel(picked)) {
+      p.log.warn("Pronóstico cancelado");
+      return;
+    }
+    city = picked;
+  }
+  const spinner = p.spinner();
+  spinner.start(`Consultando el pronóstico de ${city.name}...`);
+  try {
+    const days = await getDailyForecast(city.latitude, city.longitude, state.settings.unit);
+    spinner.stop(`Pronóstico de 7 días: ${cityLabel(city)}`);
+    for (const day of days) {
+      const temps = `${day.max} / ${day.min} ${day.unit}`;
+      p.log.info(`${formatDay(day.date)} → ${pc.yellow(temps)}`);
+    }
+  } catch (error) {
+    spinner.stop();
+    p.log.error(pc.red(errorMessage(error)));
+  }
 }
 
 async function handleSettings(state: AppState): Promise<void> {
@@ -202,7 +247,7 @@ async function handleSettings(state: AppState): Promise<void> {
   }
   state.settings.unit = picked;
   await saveState(state);
-  p.log.success(`Unidad guardada: ${picked === "celsius" ? "°C" : "°F"}`);
+  p.log.success(pc.green(`Unidad guardada: ${picked === "celsius" ? "°C" : "°F"}`));
 }
 
 export async function main(): Promise<void> {
@@ -231,6 +276,9 @@ export async function main(): Promise<void> {
         break;
       case "set-default":
         await handleSetDefault(state);
+        break;
+      case "week":
+        await handleWeekForecast(state);
         break;
       case "settings":
         await handleSettings(state);
